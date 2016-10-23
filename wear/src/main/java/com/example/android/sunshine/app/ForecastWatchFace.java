@@ -26,11 +26,15 @@ import android.graphics.Color;
 import android.graphics.Paint;
 import android.graphics.Rect;
 import android.graphics.Typeface;
+import android.net.Uri;
+import android.os.AsyncTask;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Message;
 import android.support.wearable.watchface.CanvasWatchFaceService;
 import android.support.wearable.watchface.WatchFaceStyle;
+import android.text.format.DateUtils;
+import android.view.Gravity;
 import android.view.SurfaceHolder;
 import android.view.WindowInsets;
 import android.widget.Toast;
@@ -88,7 +92,7 @@ public class ForecastWatchFace extends CanvasWatchFaceService {
         final Handler mUpdateTimeHandler = new EngineHandler(this);
         boolean mRegisteredTimeZoneReceiver = false;
         Paint mBackgroundPaint;
-        Paint mTextPaint;
+        Paint mTimePaint, mDatePaint;
         boolean mAmbient;
         Calendar mCalendar;
         final BroadcastReceiver mTimeZoneReceiver = new BroadcastReceiver() {
@@ -98,8 +102,6 @@ public class ForecastWatchFace extends CanvasWatchFaceService {
                 invalidate();
             }
         };
-        float mXOffset;
-        float mYOffset;
 
         /**
          * Whether the display supports fewer bits for each color in ambient mode. When true, we
@@ -115,16 +117,23 @@ public class ForecastWatchFace extends CanvasWatchFaceService {
                     .setCardPeekMode(WatchFaceStyle.PEEK_MODE_VARIABLE)
                     .setBackgroundVisibility(WatchFaceStyle.BACKGROUND_VISIBILITY_INTERRUPTIVE)
                     .setShowSystemUiTime(false)
+                    .setHotwordIndicatorGravity(Gravity.BOTTOM | Gravity.CENTER_HORIZONTAL)
+                    .setStatusBarGravity(Gravity.TOP | Gravity.CENTER_HORIZONTAL)
                     .setAcceptsTapEvents(true)
                     .build());
             Resources resources = ForecastWatchFace.this.getResources();
-            mYOffset = resources.getDimension(R.dimen.digital_y_offset);
 
             mBackgroundPaint = new Paint();
             mBackgroundPaint.setColor(resources.getColor(R.color.background));
 
-            mTextPaint = new Paint();
-            mTextPaint = createTextPaint(resources.getColor(R.color.digital_text));
+            mTimePaint = new Paint();
+            mDatePaint = new Paint();
+
+            mTimePaint = createTextPaint(resources.getColor(R.color.time_text));
+            mDatePaint = createTextPaint(resources.getColor(R.color.date_text));
+
+            mTimePaint.setTextAlign(Paint.Align.CENTER);
+            mDatePaint.setTextAlign(Paint.Align.CENTER);
 
             mCalendar = Calendar.getInstance();
         }
@@ -186,12 +195,11 @@ public class ForecastWatchFace extends CanvasWatchFaceService {
             // Load resources that have alternate values for round watches.
             Resources resources = ForecastWatchFace.this.getResources();
             boolean isRound = insets.isRound();
-            mXOffset = resources.getDimension(isRound
-                    ? R.dimen.digital_x_offset_round : R.dimen.digital_x_offset);
-            float textSize = resources.getDimension(isRound
-                    ? R.dimen.digital_text_size_round : R.dimen.digital_text_size);
+            float timeSize = resources.getDimension(isRound ? R.dimen.digital_time_size_round : R.dimen.digital_time_size);
+            float dateSize = resources.getDimension(isRound ? R.dimen.digital_date_size_round : R.dimen.digital_date_size);
 
-            mTextPaint.setTextSize(textSize);
+            mTimePaint.setTextSize(timeSize);
+            mDatePaint.setTextSize(dateSize);
         }
 
         @Override
@@ -212,7 +220,7 @@ public class ForecastWatchFace extends CanvasWatchFaceService {
             if (mAmbient != inAmbientMode) {
                 mAmbient = inAmbientMode;
                 if (mLowBitAmbient) {
-                    mTextPaint.setAntiAlias(!inAmbientMode);
+                    mTimePaint.setAntiAlias(!inAmbientMode);
                 }
                 invalidate();
             }
@@ -258,12 +266,17 @@ public class ForecastWatchFace extends CanvasWatchFaceService {
             long now = System.currentTimeMillis();
             mCalendar.setTimeInMillis(now);
 
-            String text = mAmbient
-                    ? String.format("%d:%02d", mCalendar.get(Calendar.HOUR),
-                    mCalendar.get(Calendar.MINUTE))
-                    : String.format("%d:%02d:%02d", mCalendar.get(Calendar.HOUR),
-                    mCalendar.get(Calendar.MINUTE), mCalendar.get(Calendar.SECOND));
-            canvas.drawText(text, mXOffset, mYOffset, mTextPaint);
+            String time = String.format("%02d:%02d", mCalendar.get(Calendar.HOUR_OF_DAY), mCalendar.get(Calendar.MINUTE));
+            String date = DateUtils.formatDateTime(
+                    ForecastWatchFace.this.getApplicationContext(),
+                    mCalendar.getTimeInMillis(),
+                    DateUtils.FORMAT_SHOW_WEEKDAY |
+                            DateUtils.FORMAT_SHOW_DATE |
+                            DateUtils.FORMAT_SHOW_YEAR |
+                            DateUtils.FORMAT_ABBREV_ALL);
+
+            canvas.drawText(time, bounds.exactCenterX(), bounds.height() / 3, mTimePaint);
+            canvas.drawText(date, bounds.exactCenterX(), bounds.height() / 3 + 40, mDatePaint);
         }
 
         /**
