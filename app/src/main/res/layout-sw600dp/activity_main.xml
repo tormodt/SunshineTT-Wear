@@ -70,7 +70,7 @@
 
     <fragment
         android:id="@+id/fragment_forecast"
-        android:name="com.example.android.sunshine.app.ForecastFragment"
+        class="com.example.android.sunshine.app.ForecastFragment"
         android:layout_width="0dp"
         android:layout_height="match_parent"
         android:layout_alignEnd="@id/layout_center"
@@ -86,7 +86,7 @@
     <!-- This is used to give the card the appropriate margin
          list_item_extra_padding +
          abc_list_item_padding_horizontal_material -->
-    <android.support.v7.widget.Space
+    <android.support.v4.widget.Space
         android:id="@+id/cardviewAligner"
         android:layout_width="match_parent"
         android:layout_height="match_parent"
