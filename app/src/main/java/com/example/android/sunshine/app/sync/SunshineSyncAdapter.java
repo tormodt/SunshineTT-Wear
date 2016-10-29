@@ -530,9 +530,9 @@ public class SunshineSyncAdapter extends AbstractThreadedSyncAdapter {
                             mGoogleApiClient.blockingConnect(10, TimeUnit.SECONDS);
                         }
                         if (mConnectedPeers != null && mConnectedPeers.size() > 0) {
-                            final String wearForecastStr = weatherId + ";" + high + ";" + low;
+                            final String wearForecastStr = weatherId + ";" + low + ";" + high;
                             for (Node connectedPeer : mConnectedPeers) {
-                                Wearable.MessageApi.sendMessage(mGoogleApiClient, connectedPeer.getId(), wearForecastStr, "test".getBytes());
+                                Wearable.MessageApi.sendMessage(mGoogleApiClient, connectedPeer.getId(), "/weather", wearForecastStr.getBytes());
                             }
                         } else {
                             Log.d(LOG_TAG, "mConnectedPeer = null || size = 0");
