@@ -26,11 +26,11 @@ import android.graphics.Color;
 import android.graphics.Paint;
 import android.graphics.Rect;
 import android.graphics.Typeface;
-import android.net.Uri;
-import android.os.AsyncTask;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Message;
+import android.support.annotation.NonNull;
+import android.support.annotation.Nullable;
 import android.support.wearable.watchface.CanvasWatchFaceService;
 import android.support.wearable.watchface.WatchFaceStyle;
 import android.text.format.DateUtils;
@@ -38,6 +38,12 @@ import android.view.Gravity;
 import android.view.SurfaceHolder;
 import android.view.WindowInsets;
 import android.widget.Toast;
+
+import com.google.android.gms.common.ConnectionResult;
+import com.google.android.gms.common.api.GoogleApiClient;
+import com.google.android.gms.wearable.MessageApi;
+import com.google.android.gms.wearable.MessageEvent;
+import com.google.android.gms.wearable.Wearable;
 
 import java.lang.ref.WeakReference;
 import java.util.Calendar;
@@ -49,8 +55,7 @@ import java.util.concurrent.TimeUnit;
  * low-bit ambient mode, the text is drawn without anti-aliasing in ambient mode.
  */
 public class ForecastWatchFace extends CanvasWatchFaceService {
-    private static final Typeface NORMAL_TYPEFACE =
-            Typeface.create(Typeface.SANS_SERIF, Typeface.NORMAL);
+    private static final Typeface NORMAL_TYPEFACE = Typeface.create(Typeface.SANS_SERIF, Typeface.NORMAL);
 
     /**
      * Update rate in milliseconds for interactive mode. We update once a second since seconds are
@@ -88,13 +93,14 @@ public class ForecastWatchFace extends CanvasWatchFaceService {
         }
     }
 
-    private class Engine extends CanvasWatchFaceService.Engine {
+    private class Engine extends CanvasWatchFaceService.Engine implements GoogleApiClient.ConnectionCallbacks, GoogleApiClient.OnConnectionFailedListener, MessageApi.MessageListener {
         final Handler mUpdateTimeHandler = new EngineHandler(this);
         boolean mRegisteredTimeZoneReceiver = false;
         Paint mBackgroundPaint;
         Paint mTimePaint, mDatePaint;
         boolean mAmbient;
         Calendar mCalendar;
+        GoogleApiClient mGoogleApiClient;
         final BroadcastReceiver mTimeZoneReceiver = new BroadcastReceiver() {
             @Override
             public void onReceive(Context context, Intent intent) {
@@ -121,7 +127,7 @@ public class ForecastWatchFace extends CanvasWatchFaceService {
                     .setStatusBarGravity(Gravity.TOP | Gravity.CENTER_HORIZONTAL)
                     .setAcceptsTapEvents(true)
                     .build());
-            Resources resources = ForecastWatchFace.this.getResources();
+            Resources resources = getResources();
 
             mBackgroundPaint = new Paint();
             mBackgroundPaint.setColor(resources.getColor(R.color.background));
@@ -136,6 +142,13 @@ public class ForecastWatchFace extends CanvasWatchFaceService {
             mDatePaint.setTextAlign(Paint.Align.CENTER);
 
             mCalendar = Calendar.getInstance();
+
+            mGoogleApiClient = new GoogleApiClient.Builder(getApplicationContext())
+                    .addApi(Wearable.API)
+                    .addConnectionCallbacks(this)
+                    .addOnConnectionFailedListener(this)
+                    .build();
+            mGoogleApiClient.connect();
         }
 
         @Override
@@ -171,6 +184,35 @@ public class ForecastWatchFace extends CanvasWatchFaceService {
             updateTimer();
         }
 
+        @Override
+        public void onConnected(@Nullable Bundle bundle) {
+            if (BuildConfig.DEBUG) {
+                Toast.makeText(getApplicationContext(), "onConnected", Toast.LENGTH_SHORT).show();
+            }
+            Wearable.MessageApi.addListener(mGoogleApiClient, this);
+        }
+
+        @Override
+        public void onConnectionSuspended(int i) {
+            if (BuildConfig.DEBUG) {
+                Toast.makeText(getApplicationContext(), "onConnectionSuspended", Toast.LENGTH_SHORT).show();
+            }
+        }
+
+        @Override
+        public void onConnectionFailed(@NonNull ConnectionResult connectionResult) {
+            if (BuildConfig.DEBUG) {
+                Toast.makeText(getApplicationContext(), "onConnectionFailed", Toast.LENGTH_SHORT).show();
+            }
+        }
+
+        @Override
+        public void onMessageReceived(MessageEvent messageEvent) {
+            if (BuildConfig.DEBUG) {
+                Toast.makeText(getApplicationContext(), "onMessageReceived: " + messageEvent.getPath(), Toast.LENGTH_SHORT).show();
+            }
+        }
+
         private void registerReceiver() {
             if (mRegisteredTimeZoneReceiver) {
                 return;
@@ -193,7 +235,7 @@ public class ForecastWatchFace extends CanvasWatchFaceService {
             super.onApplyWindowInsets(insets);
 
             // Load resources that have alternate values for round watches.
-            Resources resources = ForecastWatchFace.this.getResources();
+            Resources resources = getResources();
             boolean isRound = insets.isRound();
             float timeSize = resources.getDimension(isRound ? R.dimen.digital_time_size_round : R.dimen.digital_time_size);
             float dateSize = resources.getDimension(isRound ? R.dimen.digital_date_size_round : R.dimen.digital_date_size);
@@ -245,9 +287,6 @@ public class ForecastWatchFace extends CanvasWatchFaceService {
                     break;
                 case TAP_TYPE_TAP:
                     // The user has completed the tap gesture.
-                    // TODO: Add code to handle the tap gesture.
-                    Toast.makeText(getApplicationContext(), R.string.message, Toast.LENGTH_SHORT)
-                            .show();
                     break;
             }
             invalidate();
@@ -268,7 +307,7 @@ public class ForecastWatchFace extends CanvasWatchFaceService {
 
             String time = String.format("%02d:%02d", mCalendar.get(Calendar.HOUR_OF_DAY), mCalendar.get(Calendar.MINUTE));
             String date = DateUtils.formatDateTime(
-                    ForecastWatchFace.this.getApplicationContext(),
+                    getApplicationContext(),
                     mCalendar.getTimeInMillis(),
                     DateUtils.FORMAT_SHOW_WEEKDAY |
                             DateUtils.FORMAT_SHOW_DATE |
@@ -276,7 +315,11 @@ public class ForecastWatchFace extends CanvasWatchFaceService {
                             DateUtils.FORMAT_ABBREV_ALL);
 
             canvas.drawText(time, bounds.exactCenterX(), bounds.height() / 3, mTimePaint);
-            canvas.drawText(date, bounds.exactCenterX(), bounds.height() / 3 + 40, mDatePaint);
+            canvas.drawText(date, bounds.exactCenterX(), bounds.height() / 3 + 45, mDatePaint);
+
+            if (BuildConfig.DEBUG) {
+                canvas.drawText("2", bounds.exactCenterX(), bounds.height() - 20, mDatePaint);
+            }
         }
 
         /**
