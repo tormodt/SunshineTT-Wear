@@ -1,8 +1,10 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <dimen name="digital_time_size">40dp</dimen>
-    <dimen name="digital_time_size_round">45dp</dimen>
-    <dimen name="digital_date_size">20dp</dimen>
-    <dimen name="digital_date_size_round">20dp</dimen>
+    <dimen name="time_size">40dp</dimen>
+    <dimen name="time_size_round">45dp</dimen>
+    <dimen name="date_size">20dp</dimen>
+    <dimen name="date_size_round">20dp</dimen>
+    <dimen name="temp_size">25dp</dimen>
+    <dimen name="temp_size_round">30dp</dimen>
     <dimen name="text_spacing">25dp</dimen>
 </resources>
