@@ -3,6 +3,6 @@
     <dimen name="digital_time_size">40dp</dimen>
     <dimen name="digital_time_size_round">45dp</dimen>
     <dimen name="digital_date_size">20dp</dimen>
-    <dimen name="digital_date_size_round">25dp</dimen>
+    <dimen name="digital_date_size_round">20dp</dimen>
     <dimen name="text_spacing">25dp</dimen>
 </resources>
