@@ -65,10 +65,9 @@ public class ForecastWatchFace extends CanvasWatchFaceService {
     private static final Typeface NORMAL_TYPEFACE = Typeface.create(Typeface.SANS_SERIF, Typeface.NORMAL);
 
     /**
-     * Update rate in milliseconds for interactive mode. We update once a second since seconds are
-     * displayed in interactive mode.
+     * Update rate in milliseconds for interactive mode. We update once a minute since we don't show seconds
      */
-    private static final long INTERACTIVE_UPDATE_RATE_MS = TimeUnit.SECONDS.toMillis(1);
+    private static final long INTERACTIVE_UPDATE_RATE_MS = TimeUnit.SECONDS.toMillis(60);
 
     /**
      * Handler message id for updating the time periodically in interactive mode.
@@ -109,6 +108,7 @@ public class ForecastWatchFace extends CanvasWatchFaceService {
         boolean mAmbient;
         Calendar mCalendar;
         GoogleApiClient mGoogleApiClient;
+        List<Node> mConnectedPeers;
         float mTimeSize, mDateSize, mTempSize;
         int mWeatherResource;
         double mMinTemp, mMaxTemp;
@@ -203,6 +203,20 @@ public class ForecastWatchFace extends CanvasWatchFaceService {
                 Toast.makeText(getApplicationContext(), "onConnected", Toast.LENGTH_SHORT).show();
             }
             Wearable.MessageApi.addListener(mGoogleApiClient, this);
+
+            Wearable.NodeApi.getConnectedNodes(mGoogleApiClient).setResultCallback(new ResultCallback<NodeApi.GetConnectedNodesResult>() {
+                @Override
+                public void onResult(@NonNull NodeApi.GetConnectedNodesResult getConnectedNodesResult) {
+                    mConnectedPeers = getConnectedNodesResult.getNodes();
+
+                    if (mConnectedPeers != null && mConnectedPeers.size() > 0) {
+                        for (Node connectedPeer : mConnectedPeers) {
+                            Wearable.MessageApi.sendMessage(mGoogleApiClient, connectedPeer.getId(), "/weather-request", null);
+                            Toast.makeText(getApplicationContext(), "Requesting weather", Toast.LENGTH_SHORT).show();
+                        }
+                    }
+                }
+            });
         }
 
         @Override
@@ -222,7 +236,7 @@ public class ForecastWatchFace extends CanvasWatchFaceService {
         @Override
         public void onMessageReceived(MessageEvent messageEvent) {
             if (BuildConfig.DEBUG) {
-                Toast.makeText(getApplicationContext(), "onMessageReceived: " + new String(messageEvent.getData()), Toast.LENGTH_SHORT).show();
+//                Toast.makeText(getApplicationContext(), "onMessageReceived: " + new String(messageEvent.getData()), Toast.LENGTH_SHORT).show();
             }
 
             if ("/weather".equals(messageEvent.getPath()) && messageEvent.getData() != null) {
@@ -234,6 +248,8 @@ public class ForecastWatchFace extends CanvasWatchFaceService {
 
                     mMaxTemp = Double.parseDouble(messageDataList.get(2));
                     mMinTemp = Double.parseDouble(messageDataList.get(1));
+
+                    mUpdateTimeHandler.sendEmptyMessage(MSG_UPDATE_TIME);
 
                     if (BuildConfig.DEBUG) {
                         Toast.makeText(getApplicationContext(), "Weather received: " + mWeatherResource + " / " + mMinTemp + " / " + mMaxTemp, Toast.LENGTH_SHORT).show();
@@ -331,6 +347,15 @@ public class ForecastWatchFace extends CanvasWatchFaceService {
                     break;
                 case TAP_TYPE_TAP:
                     // The user has completed the tap gesture.
+                    if (BuildConfig.DEBUG) {
+                        if (mConnectedPeers != null && mConnectedPeers.size() > 0) {
+                            for (Node connectedPeer : mConnectedPeers) {
+                                Wearable.MessageApi.sendMessage(mGoogleApiClient, connectedPeer.getId(), "/weather-request", null);
+                                Toast.makeText(getApplicationContext(), "Requesting weather", Toast.LENGTH_SHORT).show();
+                            }
+                        }
+                    }
+
                     break;
             }
             invalidate();
@@ -361,24 +386,24 @@ public class ForecastWatchFace extends CanvasWatchFaceService {
 
             // Draw the weather and temp if not in ambient mode and if the watch face has received a weather update from the handheld
             if (!isInAmbientMode()) {
-                canvas.drawText(time, bounds.exactCenterX(), bounds.exactCenterY() - mTimeSize, mTimePaint);
+                canvas.drawText(time, bounds.exactCenterX(), bounds.exactCenterY() - 40, mTimePaint);
                 canvas.drawText(date, bounds.exactCenterX(), bounds.exactCenterY(), mDatePaint);
 
                 if (mWeatherBitmap != null) {
                     final String minTemp = (int) mMinTemp + "\u00b0";
                     final String maxTemp = (int) mMaxTemp + "\u00b0";
 
-                    canvas.drawText(minTemp, bounds.exactCenterX(), bounds.exactCenterY() + 40, mMinTempPaint);
-                    canvas.drawText(maxTemp, bounds.exactCenterX() + bounds.width() / 3, bounds.exactCenterY() + 40, mMaxTempPaint);
-                    canvas.drawBitmap(mWeatherBitmap, bounds.exactCenterX() - bounds.width() / 3, bounds.exactCenterY() + 40, mWeatherPaint);
+                    canvas.drawBitmap(mWeatherBitmap, bounds.exactCenterX() - (bounds.width() / 3), bounds.exactCenterY() + 20, mWeatherPaint);
+                    canvas.drawText(minTemp, bounds.exactCenterX(), bounds.exactCenterY() + 55, mMinTempPaint);
+                    canvas.drawText(maxTemp, bounds.exactCenterX() + (bounds.width() / 4), bounds.exactCenterY() + 55, mMaxTempPaint);
                 }
             } else {
-                canvas.drawText(time, bounds.exactCenterX(), bounds.exactCenterY(), mTimePaint);
-                canvas.drawText(date, bounds.exactCenterX(), bounds.exactCenterY() + mTimeSize, mDatePaint);
+                canvas.drawText(time, bounds.exactCenterX(), bounds.exactCenterY() - 25, mTimePaint);
+                canvas.drawText(date, bounds.exactCenterX(), bounds.exactCenterY() + 25, mDatePaint);
             }
 
             if (BuildConfig.DEBUG) {
-                canvas.drawText("1", bounds.exactCenterX(), bounds.height() - 20, mDatePaint); // Just a watchface visible debug code version to be sure that my last code changes are active
+//                canvas.drawText("1", bounds.exactCenterX(), bounds.height() - 20, mDatePaint); // Just a watchface visible debug code version to be sure that my last code changes are active
             }
         }
 
